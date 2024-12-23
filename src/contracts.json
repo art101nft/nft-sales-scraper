@@ -38,5 +38,15 @@
         "contract_address": "0x501a31185927136E87cDfC97dDd4553D8eC1bb4A",
         "erc1155": false,
         "start_block": 	15973593
+    },
+    "guzzlers": {
+        "contract_address": "0x87739a10f06c08468206008f6cf1abab8e6e9a0d",
+        "erc1155": false,
+        "start_block": 18754752
+    },
+    "enzos": {
+        "contract_address": "0x621b92370fe1a27f95e7109daf0423714b73e9b5",
+        "erc1155": false,
+        "start_block": 17405849
     }
 }
