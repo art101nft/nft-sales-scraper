@@ -2,7 +2,6 @@ const ALL_CONTRACTS = require('./contracts');
 
 const { Alchemy, Network } = require("alchemy-sdk");
 const { Database } = require('sqlite3');
-const { ethers } = require("ethers");
 const fs = require('fs');
 
 
@@ -50,63 +49,53 @@ class Scrape {
       console.log('no page key')
       return
     }
-    db.get('SELECT * FROM events WHERE contract = ? COLLATE NOCASE AND page_key = ? COLLATE NOCASE LIMIT 1', [this.contractAddress, pageKey], async (err, row) => {
-      if (row) {
-        console.log('page key exists, skipping');
-        return
-      } else {
-        console.log(`[+] Scraping ${this.contractName} with pageKey ${pageKey}`)
-        const response = await alchemy.nft.getNftSales({
-          fromBlock: this.startBlock,
-          contractAddress: this.contractAddress,
-          limit: process.env.LIMIT,
-          order: 'asc',
-          pageKey: pageKey
-        });
-        console.log
 
-        if (response.pageKey) {
-          fs.writeFileSync(this.lastFile, response.pageKey)
-        }
-
-        response.nftSales.map(async (sale) => {
-          const rowExists = await new Promise((resolve) => {
-            db.get('SELECT * FROM events WHERE tx_hash = ? AND log_index = ?', [sale.transactionHash, sale.logIndex], (err, row) => {
-              if (err) { resolve(false); }
-              resolve(row !== undefined);
-            });
-          });
-          if (!rowExists) {
-            try {
-              db.run(`
-                INSERT INTO events VALUES (
-                "${this.contractAddress}",
-                "${sale.buyerAddress}",
-                "${sale.sellerAddress}",
-                "${sale.taker}",
-                "${sale.tokenId}",
-                "${sale.sellerFee.amount}",
-                "${sale.protocolFee.amount}",
-                "${sale.royaltyFee.amount}",
-                "",
-                "${sale.transactionHash}",
-                "${sale.blockNumber}",
-                "${sale.logIndex}",
-                "${sale.bundleIndex}",
-                "${sale.marketplace}",
-                "${pageKey}",
-                0, 0
-              )`);
-              console.log(` ::: Inserted sale of ${this.contractName} #${sale.tokenId} in block ${sale.blockNumber} for ${sale.sellerFee.amount} wei.`)
-            } catch(err) {
-              console.log(`Error when writing to database: ${err}`);
-              return false;
-            }
-          }
-        });
-      }
+    console.log(`[+] Scraping ${this.contractName} with pageKey ${pageKey}`)
+    const response = await alchemy.nft.getNftSales({
+      fromBlock: this.startBlock,
+      contractAddress: this.contractAddress,
+      limit: process.env.LIMIT,
+      order: 'asc',
+      pageKey: pageKey
     });
 
+    fs.writeFileSync(this.lastFile, response.pageKey || '')
+
+    response.nftSales.map(async (sale) => {
+      const rowExists = await new Promise((resolve) => {
+        db.get('SELECT * FROM events WHERE tx_hash = ? AND log_index = ?', [sale.transactionHash, sale.logIndex], (err, row) => {
+          if (err) { resolve(false); }
+          resolve(row !== undefined);
+        });
+      });
+      if (!rowExists) {
+        try {
+          db.run(`
+            INSERT INTO events VALUES (
+            "${this.contractAddress}",
+            "${sale.buyerAddress}",
+            "${sale.sellerAddress}",
+            "${sale.taker}",
+            "${sale.tokenId}",
+            "${sale.sellerFee.amount}",
+            "${sale.protocolFee.amount}",
+            "${sale.royaltyFee.amount}",
+            "",
+            "${sale.transactionHash}",
+            "${sale.blockNumber}",
+            "${sale.logIndex}",
+            "${sale.bundleIndex}",
+            "${sale.marketplace}",
+            "${pageKey}",
+            0, 0
+          )`);
+          console.log(` ::: Inserted sale of ${this.contractName} #${sale.tokenId} in block ${sale.blockNumber} for ${sale.sellerFee.amount} wei.`)
+        } catch(err) {
+          console.log(`Error when writing to database: ${err}`);
+          return false;
+        }
+      }
+    });
 
     await sleep(1);
 
@@ -158,7 +147,7 @@ class Scrape {
       } catch(e) {
         console.log(e);
       }
-      await sleep(3);
+      await sleep(1);
     }
   }
 })();
