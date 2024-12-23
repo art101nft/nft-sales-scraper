@@ -8,8 +8,8 @@ const fs = require('fs');
 
 const db = new Database('./state/sqlite.db');
 const config = {
-    apiKey: process.env.ALCHEMY_KEY,
-    network: Network.ETH_MAINNET,
+  apiKey: process.env.ALCHEMY_KEY,
+  network: Network.ETH_MAINNET,
 };
 
 const alchemy = new Alchemy(config);
@@ -45,50 +45,68 @@ class Scrape {
   }
 
   async scrape() {
-    const pageKey = this.getpageKey() || null
-    console.log(`[+] Scraping ${this.contractName} with pageKey ${pageKey}`)
-    const response = await alchemy.nft.getNftSales({
-        fromBlock: this.startBlock,
-        contractAddress: this.contractAddress,
-        limit: process.env.LIMIT,
-        order: 'asc',
-        pageKey: pageKey
-    });
-    fs.writeFileSync(this.lastFile, response.pageKey)
-    response.nftSales.map(async (sale) => {
-      const rowExists = await new Promise((resolve) => {
-        db.get('SELECT * FROM events WHERE tx_hash = ? AND log_index = ?', [sale.transactionHash, sale.logIndex], (err, row) => {
-          if (err) { resolve(false); }
-          resolve(row !== undefined);
+    const pageKey = this.getpageKey()
+    if (pageKey === '') {
+      console.log('no page key')
+      return
+    }
+    db.get('SELECT * FROM events WHERE contract = ? COLLATE NOCASE AND page_key = ? COLLATE NOCASE LIMIT 1', [this.contractAddress, pageKey], async (err, row) => {
+      if (row) {
+        console.log('page key exists, skipping');
+        return
+      } else {
+        console.log(`[+] Scraping ${this.contractName} with pageKey ${pageKey}`)
+        const response = await alchemy.nft.getNftSales({
+          fromBlock: this.startBlock,
+          contractAddress: this.contractAddress,
+          limit: process.env.LIMIT,
+          order: 'asc',
+          pageKey: pageKey
         });
-      });
-      if (!rowExists) {
-        try {
-          db.run(`
-            INSERT INTO events VALUES (
-            "${sale.contractAddress}",
-            "${sale.buyerAddress}",
-            "${sale.sellerAddress}",
-            "${sale.taker}",
-            "${sale.tokenId}",
-            "${sale.sellerFee.amount}",
-            "${sale.protocolFee.amount}",
-            "${sale.royaltyFee.amount}",
-            "",
-            "${sale.transactionHash}",
-            "${sale.blockNumber}",
-            "${sale.logIndex}",
-            "${sale.bundleIndex}",
-            "${sale.marketplace}",
-            0, 0
-          )`);
-          console.log(` ::: Inserted sale of ${this.contractName} #${sale.tokenId} in block ${sale.blockNumber} for ${sale.sellerFee.amount} wei.`)
-        } catch(err) {
-          console.log(`Error when writing to database: ${err}`);
-          return false;
+        console.log
+
+        if (response.pageKey) {
+          fs.writeFileSync(this.lastFile, response.pageKey)
         }
+
+        response.nftSales.map(async (sale) => {
+          const rowExists = await new Promise((resolve) => {
+            db.get('SELECT * FROM events WHERE tx_hash = ? AND log_index = ?', [sale.transactionHash, sale.logIndex], (err, row) => {
+              if (err) { resolve(false); }
+              resolve(row !== undefined);
+            });
+          });
+          if (!rowExists) {
+            try {
+              db.run(`
+                INSERT INTO events VALUES (
+                "${this.contractAddress}",
+                "${sale.buyerAddress}",
+                "${sale.sellerAddress}",
+                "${sale.taker}",
+                "${sale.tokenId}",
+                "${sale.sellerFee.amount}",
+                "${sale.protocolFee.amount}",
+                "${sale.royaltyFee.amount}",
+                "",
+                "${sale.transactionHash}",
+                "${sale.blockNumber}",
+                "${sale.logIndex}",
+                "${sale.bundleIndex}",
+                "${sale.marketplace}",
+                "${pageKey}",
+                0, 0
+              )`);
+              console.log(` ::: Inserted sale of ${this.contractName} #${sale.tokenId} in block ${sale.blockNumber} for ${sale.sellerFee.amount} wei.`)
+            } catch(err) {
+              console.log(`Error when writing to database: ${err}`);
+              return false;
+            }
+          }
+        });
       }
     });
+
 
     await sleep(1);
 
@@ -123,6 +141,7 @@ class Scrape {
           log_index number,
           bundle_index number,
           marketplace text,
+          page_key text,
           discord_sent number,
           twitter_sent number,
           UNIQUE(tx_hash, log_index, bundle_index)
