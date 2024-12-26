@@ -61,7 +61,7 @@ app.get('/api/latest', (req, res) => {
 app.get('/api/:contractAddress/data', (req, res) => {
     const results = [];
     const stmt = db.prepare(`select
-        block_number block,
+        (block_number / 100) * 100 block,
         sum(sale_price/1000000000000000000.0) volume,
         avg(sale_price/1000000000000000000.0) average_price,
         (select avg(sale_price/1000000000000000000.0) from (select * from events

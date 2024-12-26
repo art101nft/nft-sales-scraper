@@ -1,12 +1,12 @@
 {
   "dependencies": {
-    "alchemy-sdk": "^3.5.0",
     "better-sqlite3": "^11.7.0",
     "ethers": "^6.13.4",
     "express": "^4.21.2",
+    "moralis": "^2.27.2",
     "sqlite3": "^5.1.7"
   },
-  "name": "alchemy-nft-scraper",
+  "name": "nft-sales-scraper",
   "module": "index.ts",
   "devDependencies": {
     "@types/bun": "latest"
