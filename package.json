@@ -4,6 +4,7 @@
     "ethers": "^6.13.4",
     "express": "^4.21.2",
     "moralis": "^2.27.2",
+    "node-gyp": "^11.4.2",
     "sqlite3": "^5.1.7"
   },
   "name": "nft-sales-scraper",
