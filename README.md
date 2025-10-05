@@ -1,4 +1,4 @@
-# alchemy-nft-scraper
+# nft-sales-scraper
 
 To install dependencies:
 
